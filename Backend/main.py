@@ -179,6 +179,8 @@
 #     import uvicorn
 #     uvicorn.run(app, host="0.0.0.0", port=8000)
 
+
+# # KODE BARU YANG DIGUNAKAN SEBELUM TTS
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from rag_pipeline import query_rag_multilang
@@ -269,8 +271,10 @@ async def get_system_info():
     return {
         "system": "Dual Language RAG for Budaya Bali",
         "datasets": {
-            "indonesian": "budaya_bali_lengkap.json",
-            "english": "artikel_budaya_bali_inggris.json"
+            # "indonesian": "budaya_bali_lengkap.json",
+            # "english": "artikel_budaya_bali_inggris.json"
+            "indonesian": "budaya_bali_lengkap_coba.json",
+            "english": "artikel_budaya_bali_inggris_coba.json"
         },
         "logic": {
             "indonesian_questions": "Uses Indonesian dataset",
