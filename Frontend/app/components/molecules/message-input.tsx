@@ -11,6 +11,7 @@ interface ChatInputProps {
 
 const ChatInput: React.FC<ChatInputProps> = ({ submitHandler }) => {
   const [inputValue, setInputValue] = React.useState("");
+
   const handleInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputValue(event.target.value);
   };
@@ -25,11 +26,12 @@ const ChatInput: React.FC<ChatInputProps> = ({ submitHandler }) => {
 
   return (
     <div className="w-full flex gap-4 justify-center">
-      <div className="grid w-full items-center gap-1.5">
+      <div className="w-full">
         <form className="relative" onSubmit={handleSubmit}>
           <Textarea
-            placeholder="Tanyakan Apapun Seputar Kebudayaan dan Pariwisata Bali..."
-            className="w-full rounded-3xl bg-[#56411c] placeholder-[#FAF3E0] pl-3 text-[#fbfbfb] h-24 resize-none overflow-hidden"
+            placeholder="Tanyakan apapun seputar kebudayaan & pariwisata Bali..."
+            className="w-full rounded-xl bg-black border border-[#181818] text-white font-montserrat h-24 resize-none overflow-hidden pr-14 py-4 
+                      focus:outline-none focus:ring-0 focus:border-transparent !focus:border-transparent !focus-visible:border-transparent"
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={(e) => {
@@ -40,12 +42,12 @@ const ChatInput: React.FC<ChatInputProps> = ({ submitHandler }) => {
             }}
           />
           <Button
-            className="absolute right-2.5 bottom-2.5 bg-white p-4 shadow-md hover:bg-[#dedede] transition-colors duration-300"
+            className="absolute right-2.5 bottom-2.5 bg-[#181818] text-white rounded-full hover:bg-white transition-colors duration-300"
             type="submit"
             disabled={!inputValue}
             size="icon"
           >
-            <SendIcon size={100} color="black" />
+            <SendIcon size={22} />
           </Button>
         </form>
       </div>

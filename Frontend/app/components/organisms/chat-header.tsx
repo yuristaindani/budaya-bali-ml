@@ -1,16 +1,30 @@
 "use client";
+import React from "react";
 
-import { UserCircle2 } from "lucide-react";
 
-const ChatHeader = () => {
-  return (
-    <header className="w-full bg-[#fffcf3] py-4 px-6 shadow-md flex justify-between items-center rounded-none">
-      <h1 className="text-2xl font-semibold text-[#6a4c1d]">TemanBudaya</h1>
-      <div className="text-[#6a4c1d]">
-        <UserCircle2 className="w-8 h-8" />
-      </div>
-    </header>
-  );
-};
+interface ChatHeaderProps {
+  onSidebarToggle: () => void;
+}
+
+const ChatHeader: React.FC<ChatHeaderProps> = ({ onSidebarToggle }) => (
+  <header className="fixed top-0 left-0 w-full z-30 bg-[#181818] text-white border-b border-[#222] h-16 flex items-center px-8 justify-between">
+    <div className="flex items-center gap-3">
+      <img src="/logo-budayabali.png" alt="Logo Budaya Bali" className="h-12 w-auto" />
+    </div>
+    <button
+      aria-label="Tampilkan sidebar"
+      onClick={onSidebarToggle}
+      className="p-2 rounded hover:bg-[#222] transition ml-auto z-50"
+      type="button"
+    >
+      {/* Hamburger icon */}
+      <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
+        <rect x="4" y="6" width="16" height="2" rx="1" fill="white"/>
+        <rect x="4" y="11" width="16" height="2" rx="1" fill="white"/>
+        <rect x="4" y="16" width="16" height="2" rx="1" fill="white"/>
+      </svg>
+    </button>
+  </header>
+);
 
 export default ChatHeader;
