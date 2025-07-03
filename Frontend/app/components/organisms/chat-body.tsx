@@ -6,7 +6,6 @@ import ChatBubble from "../atoms/chat-bubble";
 import ChatInput from "../molecules/message-input";
 import ChatSidebar from "./chat-sidebar";
 import ChatHeader from "./chat-header";
-// import ChatFooter from "./chat-footer";
 
 type Source = {
   title: string;
@@ -28,10 +27,10 @@ type ChatHistory = {
   messages: MessageProps[];
 };
 
-const HEADER_HEIGHT = 64; // px
-const INPUT_HEIGHT = 96; // px
+const HEADER_HEIGHT = 64;
+const INPUT_HEIGHT = 96;
 const EXTRA_BOTTOM_SPACE = 16;
-const SIDEBAR_WIDTH = 260; // px
+const SIDEBAR_WIDTH = 260;
 const STORAGE_KEY = "budayabali_chat_histories";
 
 function getNowString() {
@@ -47,36 +46,47 @@ const ChatBody = () => {
 
   // Load histories from localStorage on mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const data = localStorage.getItem(STORAGE_KEY);
-      const lastId = localStorage.getItem("budayabali_active_chat_id");
+    const loadFromStorage = () => {
+      try {
+        const data = localStorage.getItem(STORAGE_KEY);
+        
+        // Selalu buat new chat terlebih dahulu
+        const newChatId = crypto.randomUUID();
+        const now = getNowString();
+        const newHistory: ChatHistory = {
+          id: newChatId,
+          title: "Obrolan Baru",
+          lastMessage: "",
+          createdAt: now,
+          messages: [],
+        };
 
-      if (data) {
-        const parsed: ChatHistory[] = JSON.parse(data);
-        setHistories(parsed);
-
-        if (lastId && parsed.some(h => h.id === lastId)) {
-          // Jika ada ID terakhir dan masih valid, gunakan itu
-          setActiveId(lastId);
+        setActiveId(newChatId);
+        
+        // Jika ada history sebelumnya, gabungkan dengan new chat
+        if (data) {
+          const parsed: ChatHistory[] = JSON.parse(data);
+          setHistories([newHistory, ...parsed]);
         } else {
-          // Jika tidak ada ID terakhir, tetap buat obrolan baru
-          handleNewChat();
+          setHistories([newHistory]);
         }
-      } else {
-        // Pertama kali buka web
+      } catch (e) {
+        console.error("Failed to load chat history", e);
         handleNewChat();
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    };
+
+    loadFromStorage();
   }, []);
 
-  // Save histories and activeId to localStorage every change
+  // Save to localStorage whenever histories changes
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const data = localStorage.getItem(STORAGE_KEY);
-      const parsed: ChatHistory[] = data ? JSON.parse(data) : [];
+    if (histories.length > 0) {
+      // Simpan semua history kecuali new chat yang kosong
+      const historiesToSave = histories.filter(h => h.messages.length > 0);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(historiesToSave));
     }
-  }, [histories, activeId]);
+  }, [histories]);
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -86,53 +96,37 @@ const ChatBody = () => {
   // Create new chat
   function handleNewChat() {
     const id = crypto.randomUUID();
-    const now = new Date();
+    const now = getNowString();
     const newHistory: ChatHistory = {
       id,
       title: "Obrolan Baru",
       lastMessage: "",
-      createdAt: now.toLocaleString("id-ID", { hour12: false }),
+      createdAt: now,
       messages: [],
     };
+
     setHistories(prev => {
-      const updated = [newHistory, ...prev];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); // simpan ke localStorage
-      return updated;
+      // Hapus new chat sebelumnya jika ada
+      const filtered = prev.filter(h => h.messages.length > 0);
+      return [newHistory, ...filtered];
     });
 
     setActiveId(id);
-    localStorage.setItem("budayabali_active_chat_id", id); // simpan ID aktif
     setSidebarOpen(false);
   }
 
-  function handleSendMessage(newMessage: MessageProps) {
-  setHistories(prev => {
-    const updated = prev.map(history => {
-      if (history.id === activeId) {
-        const updatedMessages = [...history.messages, newMessage];
-        return {
-          ...history,
-          messages: updatedMessages,
-          lastMessage: newMessage.content,
-        };
-      }
-      return history;
-    });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    return updated;
-  });
-}
-
-function createChatTitle(input: string) {
-  // Potong jika terlalu panjang
-  const maxLength = 50;
-  const trimmed = input.length > maxLength 
-    ? input.substring(0, maxLength) + '...' 
-    : input;
-  
-  // Hapus karakter newline dan multiple spaces
-  return trimmed.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-}
+  function createChatTitle(input: string) {
+    try {
+      const maxLength = 50;
+      const trimmed = input.length > maxLength 
+        ? input.substring(0, maxLength) + '...' 
+        : input;
+      return trimmed.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    } catch (e) {
+      console.error("Error creating chat title", e);
+      return "Obrolan Baru";
+    }
+  }
 
   // Select a history
   function handleSelectHistory(id: string) {
@@ -142,8 +136,6 @@ function createChatTitle(input: string) {
 
   function handleDeleteHistory(id: string) {
     setHistories(prev => prev.filter(h => h.id !== id));
-  
-    // If the deleted chat was the active one, create a new chat
     if (activeId === id) {
       handleNewChat();
     }
@@ -151,52 +143,59 @@ function createChatTitle(input: string) {
 
   // Send chat
   function handleSubmit(input: string) {
-    const activeChat = histories.find(h => h.id === activeId);
-    if (!activeChat) return;
+    if (!activeId) return;
+    
     const userMessage: MessageProps = { role: "user", content: input };
-    const currId = activeChat.id;
-
-    setHistories(prev =>
-      prev.map(h =>
-        h.id === currId
-          ? {
-              ...h,
-              messages: [...h.messages, userMessage],
-              lastMessage: input,
-              title: h.title === "Obrolan Baru" && h.messages.length === 0 ? createChatTitle(input) : h.title,
-            }
-          : h
-      )
-    );
+    
+    setHistories(prev => {
+      return prev.map(history => {
+        if (history.id === activeId) {
+          const isFirstMessage = history.messages.length === 0;
+          return {
+            ...history,
+            messages: [...history.messages, userMessage],
+            lastMessage: input,
+            title: isFirstMessage ? createChatTitle(input) : history.title,
+          };
+        }
+        return history;
+      });
+    });
 
     startTransition(async () => {
       const response = await postChat(input);
       const botMsg: MessageProps = {
         role: "assistant",
-        content:
-          response.success && response.data
-            ? response.data.content!
-            : "Maaf, terjadi kesalahan.",
+        content: response.success && response.data
+          ? response.data.content!
+          : "Maaf, terjadi kesalahan.",
         sources: response.success && response.data ? response.data.sources : undefined,
       };
-      setHistories(prev =>
-        prev.map(h =>
-          h.id === currId
-            ? {
-                ...h,
-                messages: [...h.messages, botMsg],
-                lastMessage: botMsg.content,
-              }
-            : h
-        )
-      );
+
+      setHistories(prev => {
+        return prev.map(history => {
+          if (history.id === activeId) {
+            return {
+              ...history,
+              messages: [...history.messages, botMsg],
+              lastMessage: botMsg.content,
+            };
+          }
+          return history;
+        });
+      });
     });
   }
+
+  const activeMessages = activeId 
+    ? histories.find(h => h.id === activeId)?.messages || []
+    : [];
 
   return (
     <div className="min-h-screen bg-[#ffffff] relative">
       {/* Header */}
       <ChatHeader onSidebarToggle={() => setSidebarOpen(s => !s)} />
+      
       {/* Sidebar */}
       <ChatSidebar
         histories={histories.map(h => ({
@@ -211,13 +210,12 @@ function createChatTitle(input: string) {
         sidebarOpen={sidebarOpen}
         closeSidebar={() => setSidebarOpen(false)}
       />
+      
       {/* Main content */}
       <main
-        className={`
-          flex flex-col items-center transition-all duration-300
-          pt-16 pb-16
-          ${sidebarOpen ? 'lg:pr-[260px]' : ''}
-        `}
+        className={`flex flex-col items-center transition-all duration-300 pt-16 pb-16 ${
+          sidebarOpen ? 'lg:pr-[260px]' : ''
+        }`}
         style={{
           minHeight: "100vh",
           width: "100%",
@@ -230,8 +228,7 @@ function createChatTitle(input: string) {
             maxHeight: `calc(100vh - ${HEADER_HEIGHT}px - ${INPUT_HEIGHT}px - ${EXTRA_BOTTOM_SPACE}px)`
           }}
         >
-          {!activeId ||
-          !histories.find(h => h.id === activeId)?.messages.length ? (
+          {activeMessages.length === 0 ? (
             <div className="text-center mt-28">
               <h1 className="text-2xl font-bold mb-4 text-[#181818]">
                 Rahajeng Semeton ❀
@@ -242,41 +239,35 @@ function createChatTitle(input: string) {
             </div>
           ) : (
             <div className="flex flex-col gap-6">
-              {histories
-                .find(h => h.id === activeId)!
-                .messages.map((chat, index) => (
-                  <React.Fragment key={index}>
-                    <ChatBubble
-                      isUser={chat.role === "user"}
-                      message={chat.content}
-                      sources={
-                        chat.role === "assistant" ? chat.sources : undefined
-                      }
-                    />
-                    {chat.role === "assistant" &&
-                      chat.sources &&
-                      chat.sources.length > 0 && (
-                        <div className="flex flex-col gap-4">
-                          {chat.sources.map((src, imgIndex) =>
-                            src.image ? (
-                              <div
-                                key={imgIndex}
-                                className="w-full flex justify-start"
-                              >
-                                <div className="w-fit max-w-xs rounded-xl overflow-hidden shadow-md border border-[#ededed]">
-                                  <img
-                                    src={src.image}
-                                    alt={src.title}
-                                    className="w-full h-auto object-cover"
-                                  />
-                                </div>
-                              </div>
-                            ) : null
-                          )}
-                        </div>
+              {activeMessages.map((chat, index) => (
+                <React.Fragment key={index}>
+                  <ChatBubble
+                    isUser={chat.role === "user"}
+                    message={chat.content}
+                    sources={chat.role === "assistant" ? chat.sources : undefined}
+                  />
+                  {chat.role === "assistant" && chat.sources && chat.sources.length > 0 && (
+                    <div className="flex flex-col gap-4">
+                      {chat.sources.map((src, imgIndex) =>
+                        src.image ? (
+                          <div
+                            key={imgIndex}
+                            className="w-full flex justify-start"
+                          >
+                            <div className="w-fit max-w-xs rounded-xl overflow-hidden shadow-md border border-[#ededed]">
+                              <img
+                                src={src.image}
+                                alt={src.title}
+                                className="w-full h-auto object-cover"
+                              />
+                            </div>
+                          </div>
+                        ) : null
                       )}
-                  </React.Fragment>
-                ))}
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
               {isPending && (
                 <ChatBubble
                   message="Sedang menyiapkan jawaban..."
@@ -287,20 +278,18 @@ function createChatTitle(input: string) {
             </div>
           )}
         </div>
-        {/* Fixed Input (always at bottom, width follows main content) */}
+        
+        {/* Fixed Input */}
         <div
-          className={`
-            fixed bottom-15 left-0 w-full z-40
-            transition-all duration-300
-            ${sidebarOpen ? "lg:pr-[260px]" : ""}
-          `}
+          className={`fixed bottom-15 left-0 w-full z-40 transition-all duration-300 ${
+            sidebarOpen ? "lg:pr-[260px]" : ""
+          }`}
         >
           <div className="max-w-2xl mx-auto">
             <ChatInput submitHandler={handleSubmit} />
           </div>
         </div>
       </main>
-      {/* <ChatFooter /> */}
     </div>
   );
 };
