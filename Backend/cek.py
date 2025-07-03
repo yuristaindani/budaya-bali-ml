@@ -1,2 +1,5 @@
-from translate_func import translate_to_english
-print(translate_to_english("Apa itu budaya Bali?"))
+import json
+
+with open('data/budaya_bali_lengkap_coba.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+    print(f"Jumlah data: {len(data)}")
