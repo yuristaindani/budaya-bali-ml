@@ -38,7 +38,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     />
     <aside
       className={`
-        fixed top-16 right-0 h-[calc(100vh-4rem)] max-h-screen bg-white border-l border-[#ededed] z-50 flex flex-col pt-3
+        fixed top-16 right-0 h-[calc(100vh-4rem)] max-h-screen  border-l border-gray-600 z-50 flex flex-col pt-3
         w-[90vw] max-w-[${SIDEBAR_WIDTH}px]
         transition-transform duration-300
         ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}
@@ -50,13 +50,13 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     >
 
       {/* Obrolan Baru dengan Logo */}
-      <div className="border-b border-[#ededed]">
+      <div className="border-b border-gray-600">
         <button
           onClick={() => {
             onNewChat();
             closeSidebar();
           }}
-          className="w-full text-left px-6 py-3 hover:bg-[#f4f4f4] focus:bg-[#f4f4f4] flex items-start gap-3"
+          className="w-full text-left px-6 py-3 hover:bg-gray-600 focus:bg-gray-600 flex items-start gap-3"
         >
           <div className="bg-[#181818] text-white p-2 rounded-lg flex-shrink-0">
             <svg 
@@ -97,8 +97,8 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   onSelect(chat.id);
                   closeSidebar();
                 }}
-                className={`w-full text-left px-6 py-3 border-b border-[#ededed] hover:bg-[#f4f4f4] focus:bg-[#f4f4f4] ${
-                  activeId === chat.id ? "bg-[#ededed] font-bold" : ""
+                className={`w-full text-left px-6 py-3 border-b border-gray-600 hover:bg-gray-700 focus:bg-[#f4f4f4] ${
+                  activeId === chat.id ? "bg-gray-700 font-bold" : ""
                 }`}
               >
                 <div className="truncate">{chat.title || "Chat tanpa judul"}</div>

@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
 from langchain_community.vectorstores import FAISS
-# from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_cohere import CohereEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
@@ -21,10 +20,9 @@ load_dotenv()
 class DualLanguageRAG:
     def __init__(self):
         # Initialize embedding model
-        # self.embedding = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        self.embedding = CohereEmbeddings(model="embed-multilingual-v3.0", cohere_api_key="OshFeh77pulPRbckp4FMUpEPxPNtEBnUby0OaWu9")
+        self.embedding = CohereEmbeddings(model="embed-multilingual-v3.0", cohere_api_key=os.getenv("COHERE_API_KEY"))
         
-        # Load both FAISS indexes
+        # Load Indonesian FAISS index
         try:
             self.vectordb_indonesia = FAISS.load_local(
                 "faiss_index_indonesia_cohere", 
@@ -35,12 +33,13 @@ class DualLanguageRAG:
                 search_type="similarity", 
                 search_kwargs={"k": 4}
             )
-            print("✅ Indonesian FAISS index loaded successfully")
+            print("Indonesian FAISS index loaded successfully")
         except Exception as e:
-            print(f"❌ Error loading Indonesian index: {e}")
+            print(f"Error loading Indonesian index: {e}")
             self.vectordb_indonesia = None
             self.retriever_indonesia = None
         
+        # Load English FAISS index
         try:
             self.vectordb_english = FAISS.load_local(
                 "faiss_index_english_cohere", 
@@ -51,16 +50,16 @@ class DualLanguageRAG:
                 search_type="similarity", 
                 search_kwargs={"k": 4}
             )
-            print("✅ English FAISS index loaded successfully")
+            print("English FAISS index loaded successfully")
         except Exception as e:
-            print(f"❌ Error loading English index: {e}")
+            print(f"Error loading English index: {e}")
             self.vectordb_english = None
             self.retriever_english = None
         
         # Initialize LLM
         self.llm = ChatOpenAI(model_name="gpt-4.1-nano", temperature=0)
         
-        # Prompt templates for different languages
+        # Prompt templates
         self.template_indonesian = """
 Anda adalah asisten yang membantu. Silakan jawab pertanyaan berdasarkan HANYA pada konteks yang diberikan.
 Jika jawaban tidak ada dalam konteks, jangan membuat jawaban. Berikan jawaban yang ringkas dan sopan dalam bahasa Indonesia.
@@ -95,7 +94,6 @@ Question:
 Answer:
 """
         
-        # Create prompt templates
         self.prompt_indonesian = PromptTemplate(
             template=self.template_indonesian, 
             input_variables=["context", "question"]
@@ -133,23 +131,22 @@ Answer:
         return cosine_similarity(emb1, emb2)[0][0]
 
     def _is_list_question(self, question: str) -> bool:
-        """Deteksi apakah pertanyaan meminta daftar/banyak item."""
+        """Deteksi apakah pertanyaan meminta daftar/banyak item"""
         keywords = [
             "sebutkan", "daftar", "apa saja", "siapa saja", "contoh", "jenis-jenis",
             "jelaskan beberapa", "berikan beberapa", "tuliskan beberapa", "list", "perbedaan", "rekomendasi",
-            "mention", "list", "any", "anyone", "example", "types","explain some", "give some",
-            "write some", "list", "differences", "recommendation"
+            "mention", "any", "anyone", "example", "types", "explain some", "give some",
+            "write some", "differences", "recommendation"
         ]
         q_lower = question.lower()
         return any(kw in q_lower for kw in keywords)
 
     def _filter_relevant_sources(self, source_documents, answer, question):
-        """Filter and rank sources, tampilkan 1 atau beberapa tergantung intent pertanyaan."""
+        """Filter dan ranking dokumen yang relevan"""
         answer_lower = answer.lower()
         question_lower = question.lower()
         question_keywords = set(question_lower.split())
         
-        # Extract key phrases from answer (sentences or important phrases)
         answer_phrases = []
         sentences = answer.split('.')
         for sentence in sentences:
@@ -157,34 +154,23 @@ Answer:
                 answer_phrases.append(sentence.strip().lower())
         
         url_to_doc = {}
-        
-        # Get best version of each document per URL
         for doc in source_documents:
             url = doc.metadata.get("url", "No URL")
             image = doc.metadata.get("image", "")
             if url not in url_to_doc or (not url_to_doc[url].metadata.get("image") and image):
                 url_to_doc[url] = doc
         
-        # Calculate relevance scores for each document
         document_scores = []
-        
         for url, doc in url_to_doc.items():
             snippet = doc.page_content.strip().lower()
             title = doc.metadata.get("title", "").lower()
             image = doc.metadata.get("image", "")
-            
-            # Calculate different relevance scores
             relevance_score = self._calculate_document_relevance(
                 doc, answer_lower, answer_phrases, question_lower, question_keywords
             )
-            
-            # Calculate cosine similarity between question and document content
             cosine_sim = self._calculate_cosine_similarity(question, doc.page_content)
-            
-            # Combine scores (you can adjust weights as needed)
             combined_score = (relevance_score * 0.7) + (cosine_sim * 0.3)
             
-            # Only include documents with minimum relevance
             if combined_score > 0.1:
                 document_scores.append({
                     "doc": doc,
@@ -196,14 +182,11 @@ Answer:
                     "image": image
                 })
         
-        # Sort by combined score (highest first)
         document_scores.sort(key=lambda x: x['score'], reverse=True)
         
-        # === MODIFIKASI: Pilih jumlah sumber berdasarkan intent pertanyaan ===
         sources = []
         if document_scores:
             if self._is_list_question(question):
-                # Tampilkan beberapa dokumen (misal: top 3)
                 for doc_info in document_scores[:3]:
                     sources.append({
                         "title": doc_info["title"],
@@ -213,7 +196,6 @@ Answer:
                         "cosine_similarity": doc_info["cosine_similarity"]
                     })
             else:
-                # Tampilkan hanya 1 dokumen paling relevan
                 doc_info = document_scores[0]
                 sources.append({
                     "title": doc_info["title"],
@@ -223,59 +205,44 @@ Answer:
                     "cosine_similarity": doc_info["cosine_similarity"]
                 })
         
-        print(f"\n=== SOURCE RANKING DEBUG ===")
-        for i, doc_info in enumerate(document_scores[:3], 1):
-            print(f"[{i}] SCORE: {doc_info['score']:.3f} (Relevance: {doc_info['relevance_score']:.3f}, Cosine: {doc_info['cosine_similarity']:.3f})")
-            print(f"    TITLE: {doc_info['title']}")
-            print(f"    URL: {doc_info['url']}\n")
-        
         return sources
 
     def _calculate_document_relevance(self, doc, answer_lower, answer_phrases, question_lower, question_keywords):
-        """Calculate how relevant a document is to the answer and question"""
+        """Hitung seberapa relevan dokumen terhadap pertanyaan dan jawaban"""
         snippet = doc.page_content.strip().lower()
         title = doc.metadata.get("title", "").lower()
         
         total_score = 0.0
-        
-        # 1. Direct content overlap with answer (highest weight)
         content_overlap_score = 0.0
         for phrase in answer_phrases:
-            if len(phrase) > 5: 
-                # Check for exact phrase matches
+            if len(phrase) > 5:
                 if phrase in snippet:
                     content_overlap_score += 3.0
-                # Check for partial matches (word overlap)
                 phrase_words = set(phrase.split())
                 snippet_words = set(snippet.split())
                 overlap_ratio = len(phrase_words & snippet_words) / len(phrase_words) if phrase_words else 0
-                if overlap_ratio > 0.5: 
+                if overlap_ratio > 0.5:
                     content_overlap_score += overlap_ratio * 2.0
         
-        # 2. Title relevance to question (high weight)
         title_score = 0.0
         title_words = set(title.split())
         title_question_overlap = len(question_keywords & title_words) / len(question_keywords) if question_keywords else 0
         title_score = title_question_overlap * 2.5
         
-        # 3. Content relevance to question (medium weight)
         question_score = 0.0
         snippet_words = set(snippet.split())
         question_content_overlap = len(question_keywords & snippet_words) / len(question_keywords) if question_keywords else 0
         question_score = question_content_overlap * 1.5
         
-        # 4. Specific keyword matching (medium weight)
         keyword_score = 0.0
         for keyword in question_keywords:
-            if len(keyword) > 2: 
+            if len(keyword) > 2:
                 if keyword in title:
                     keyword_score += 1.0 
                 elif keyword in snippet:
                     keyword_score += 0.5
         
-        # 5. Answer-specific content matching (highest weight)
         answer_content_score = 0.0
-        # Check if document content appears in the answer
         doc_sentences = snippet.split('.')
         for sentence in doc_sentences:
             if len(sentence.strip()) > 10:
@@ -283,14 +250,12 @@ Answer:
                 if sentence_clean in answer_lower:
                     answer_content_score += 4.0 
                 else:
-                    # Check for word overlap with answer
                     sentence_words = set(sentence_clean.split())
                     answer_words = set(answer_lower.split())
                     overlap = len(sentence_words & answer_words)
-                    if overlap > 3:  # Significant word overlap
+                    if overlap > 3:
                         answer_content_score += (overlap / len(sentence_words)) * 2.0
         
-        # Combine all scores
         total_score = (
             answer_content_score * 0.4 +    
             content_overlap_score * 0.25 +  
@@ -298,55 +263,35 @@ Answer:
             question_score * 0.1 +          
             keyword_score * 0.05            
         )
-        
         return total_score
 
     def query_rag_dual_language(self, user_question: str) -> dict:
-        """Enhanced RAG function with dual language support with flexible source listing"""
-    
-        # Detect input language
+        """Fungsi utama untuk menjawab pertanyaan dalam dua bahasa"""
         input_lang = detect_language(user_question)
-        print(f"\n🌐 Detected Language: {input_lang}")
-    
-        # Determine which dataset to try first
         use_indonesian_dataset = is_indonesian(user_question)
-        print(f"📚 Primary dataset: {'Indonesian' if use_indonesian_dataset else 'English'}")
-    
         result = None
         dataset_used = "none"
         question_en = None
-    
-        # Try with Indonesian dataset first if applicable
+
         if use_indonesian_dataset and self.retriever_indonesia:
-            print("🔍 Searching in Indonesian dataset...")
             result = self.qa_chain_indonesia.invoke(user_question)
             full_answer = result['result'].strip()
-        
-            # Check if answer indicates no source was found
             if "[NO SOURCE USED]" in full_answer:
-                print("⚠ No useful results in Indonesian dataset, trying English...")
                 result = None
             else:
                 dataset_used = "indonesian"
-    
-        # If no results from Indonesian or question is in other language
+
         if result is None and self.retriever_english:
-            print("🔍 Searching in English dataset...")
-        
-            # Translate question to English if needed
             if input_lang != 'en':
                 question_en = translate_to_english(user_question, input_lang)
-                print(f"🔄 Translated question: {question_en}")
             else:
                 question_en = user_question
             
             result = self.qa_chain_english.invoke(question_en)
             full_answer_en = result['result'].strip()
             dataset_used = "english"
-        
-            # Translate answer back to user's language if needed
+
             if input_lang != 'en':
-                # Extract clean answer without tags
                 if "[SOURCES USED]" in full_answer_en:
                     clean_answer_en = full_answer_en.replace("[SOURCES USED]", "").strip()
                     tag = "[SOURCES USED]"
@@ -356,15 +301,11 @@ Answer:
                 else:
                     clean_answer_en = full_answer_en
                     tag = ""
-            
-                # Translate clean answer
                 translated_answer = translate_from_english(clean_answer_en, input_lang)
                 full_answer = translated_answer + (" " + tag if tag else "")
-                print(f"🔄 Translated answer: {translated_answer}")
             else:
                 full_answer = full_answer_en
-    
-        # Fallback if no results found in either dataset
+
         if result is None:
             error_msg = "Maaf, informasi tidak ditemukan dalam dataset kami." if use_indonesian_dataset else "Sorry, the information was not found in our dataset."
             return {
@@ -374,8 +315,7 @@ Answer:
                 "sources": [],
                 "dataset_used": "none"
             }
-    
-        # Check if model used sources
+
         if "[SOURCES USED]" in full_answer:
             use_sources = True
             clean_answer = full_answer.replace("[SOURCES USED]", "").strip()
@@ -385,25 +325,16 @@ Answer:
         else:
             use_sources = False
             clean_answer = full_answer
-    
-        # Process source documents
+
         sources = []
         if use_sources and result.get("source_documents"):
-            print("\n=== DEBUGGING: SOURCE DOCUMENTS ===")
-            for i, doc in enumerate(result["source_documents"], 1):
-                print(f"[{i}] TITLE:", doc.metadata.get("title"))
-                print("     URL  :", doc.metadata.get("url"))
-                print("     IMAGE:", doc.metadata.get("image"))
-                print("     SAMPLE:", doc.page_content[:80].replace("\n", " "), "...\n")
-        
-            # Filter and prepare sources
             search_query = user_question if dataset_used == "indonesian" else question_en if question_en else user_question
             sources = self._filter_relevant_sources(
                 result["source_documents"], 
                 clean_answer, 
                 search_query
             )
-    
+
         return {
             "input_language": input_lang,
             "question": user_question,
@@ -412,49 +343,44 @@ Answer:
             "dataset_used": dataset_used
         }
 
-# Initialize global RAG instance
+# Inisialisasi global instance
 rag_system = DualLanguageRAG()
 
 def query_rag_multilang(user_question: str) -> dict:
-    """Main function to query the dual language RAG system"""
+    """Main entrypoint function"""
     return rag_system.query_rag_dual_language(user_question)
 
 def run_multilang_rag_pipeline():
-    """Interactive CLI"""
-    print("🧠 Budaya Bali RAG Dual Language System")
+    """CLI interaktif"""
+    print("Budaya Bali RAG Dual Language System")
     print("Sistem ini akan:")
     print("- Menggunakan dataset Indonesia untuk pertanyaan berbahasa Indonesia")
     print("- Menggunakan dataset English untuk pertanyaan berbahasa lain")
-    print("Type 'exit' atau 'quit' untuk keluar.\n")
+    print("Ketik 'exit' atau 'quit' untuk keluar.\n")
 
     while True:
         user_input = input("Pertanyaan Anda / Your question:\n> ").strip()
-
         if user_input.lower() in ["exit", "quit", "keluar"]:
-            print("Goodbye! / Selamat tinggal!")
+            print("Goodbye!")
             break
 
         try:
             result = query_rag_multilang(user_input)
-
-            print(f"\n📌 Answer ({result['dataset_used']} dataset):\n{result['answer']}")
-            
+            print(f"\nAnswer ({result['dataset_used']} dataset):\n{result['answer']}")
             if result['sources']:
-                print(f"\n📚 Sources Used:")
+                print("\nSources Used:")
                 for i, source in enumerate(result['sources'], 1):
                     print(f"{i}. {source['title']}")
                     print(f"   {source['url']}")
                     if source.get('cosine_similarity') is not None:
-                        print(f"   🔍 Similarity Score: {source['cosine_similarity']:.3f}")
+                        print(f"   Similarity Score: {source['cosine_similarity']:.3f}")
                     if source['image']:
-                        print(f"   📷 Image: {source['image']}")
+                        print(f"   Image: {source['image']}")
             else:
-                print("\n⚠ No sources included.")
-
+                print("\nNo sources included.")
             print("-" * 60)
-
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f"Error: {e}")
             print("Please try again.")
 
 if __name__ == "__main__":

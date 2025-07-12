@@ -7,7 +7,7 @@ interface ChatHeaderProps {
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ onSidebarToggle }) => (
-  <header className="fixed top-0 left-0 w-full z-30 bg-[#181818] text-white border-b border-[#222] h-16 flex items-center px-8 justify-between">
+  <header className="fixed top-0 left-0 w-full z-30 bg-transparent text-white border-b border-[#222] h-16 flex items-center px-8 justify-between">
     <div className="flex items-center gap-3">
       <img src="/logo-budayabali.png" alt="Logo Budaya Bali" className="h-12 w-auto" />
     </div>

@@ -30,7 +30,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ submitHandler }) => {
         <form className="relative" onSubmit={handleSubmit}>
           <Textarea
             placeholder="Tanyakan apapun seputar kebudayaan & pariwisata Bali..."
-            className="w-full rounded-xl bg-black border border-[#181818] text-white font-montserrat h-24 resize-none overflow-hidden pr-14 py-4 
+            className="w-full rounded-xl bg-gray-900 border border-gray-700 text-white font-montserrat h-24 resize-none overflow-hidden pr-14 py-4 
                       focus:outline-none focus:ring-0 focus:border-transparent !focus:border-transparent !focus-visible:border-transparent"
             value={inputValue}
             onChange={handleInputChange}

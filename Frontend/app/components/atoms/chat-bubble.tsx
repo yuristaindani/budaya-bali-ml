@@ -24,11 +24,11 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
   return (
     <div className={`w-full flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`w-fit max-w-lg px-5 py-3 rounded-2xl border font-montserrat
+        className={`w-fit max-w-lg px-5 py-3 rounded-2xl font-montserrat
         ${
           isUser
-            ? "bg-[#f4f4f4] border-[#ededed] text-[#181818]"
-            : "bg-[#ffffff] border-[#ededed] text-[#000000]"
+            ? "bg-gray-800 border border-gray-800 text-white"
+            : "text-white"
         } 
         `}
       >

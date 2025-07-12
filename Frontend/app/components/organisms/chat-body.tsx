@@ -4,8 +4,8 @@ import { postChat } from "@/app/actions/post-chat";
 import React, { useEffect, useRef, useState } from "react";
 import ChatBubble from "../atoms/chat-bubble";
 import ChatInput from "../molecules/message-input";
-import ChatSidebar from "./chat-sidebar";
 import ChatHeader from "./chat-header";
+import ChatSidebar from "./chat-sidebar";
 
 type Source = {
   title: string;
@@ -50,7 +50,6 @@ const ChatBody = () => {
       try {
         const data = localStorage.getItem(STORAGE_KEY);
         
-        // Selalu buat new chat terlebih dahulu
         const newChatId = crypto.randomUUID();
         const now = getNowString();
         const newHistory: ChatHistory = {
@@ -63,7 +62,6 @@ const ChatBody = () => {
 
         setActiveId(newChatId);
         
-        // Jika ada history sebelumnya, gabungkan dengan new chat
         if (data) {
           const parsed: ChatHistory[] = JSON.parse(data);
           setHistories([newHistory, ...parsed]);
@@ -82,7 +80,6 @@ const ChatBody = () => {
   // Save to localStorage whenever histories changes
   useEffect(() => {
     if (histories.length > 0) {
-      // Simpan semua history kecuali new chat yang kosong
       const historiesToSave = histories.filter(h => h.messages.length > 0);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(historiesToSave));
     }
@@ -106,7 +103,6 @@ const ChatBody = () => {
     };
 
     setHistories(prev => {
-      // Hapus new chat sebelumnya jika ada
       const filtered = prev.filter(h => h.messages.length > 0);
       return [newHistory, ...filtered];
     });
@@ -128,7 +124,6 @@ const ChatBody = () => {
     }
   }
 
-  // Select a history
   function handleSelectHistory(id: string) {
     setActiveId(id);
     setSidebarOpen(false);
@@ -141,7 +136,6 @@ const ChatBody = () => {
     }
   }
 
-  // Send chat
   function handleSubmit(input: string) {
     if (!activeId) return;
     
@@ -192,7 +186,7 @@ const ChatBody = () => {
     : [];
 
   return (
-    <div className="min-h-screen bg-[#ffffff] relative">
+    <div className="min-h-screen relative">
       {/* Header */}
       <ChatHeader onSidebarToggle={() => setSidebarOpen(s => !s)} />
       
@@ -230,10 +224,10 @@ const ChatBody = () => {
         >
           {activeMessages.length === 0 ? (
             <div className="text-center mt-28">
-              <h1 className="text-2xl font-bold mb-4 text-[#181818]">
+              <h1 className="text-2xl font-bold mb-4">
                 Rahajeng Semeton ❀
               </h1>
-              <p className="text-base max-w-xl mx-auto mb-10 text-[#444]">
+              <p className="text-base max-w-xl mx-auto mb-12">
                 Apa yang bisa saya bantu?
               </p>
             </div>
