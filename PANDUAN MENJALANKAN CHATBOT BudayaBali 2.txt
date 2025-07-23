@@ -1,0 +1,59 @@
+PANDUAN MENJALANKAN CHATBOT BudayaBali
+
+DESKRIPSI UMUM PROJECT
+
+Sistem ini merupakan implementasi Retrieval-Augmented Generation (RAG) yang mendukung multi Bahasa untuk menjawab pertanyaan seputar budaya Bali berdasarkan informasi yang terkandung di dalam artikel-artikel pada laman budayabali.com. Sistem menggunakan FAISS untuk vektorisasi, Cohere Embeddings sebagai model embedding multibahasa, serta OpenAI Chat Model untuk menghasilkan jawaban berbasis konteks.
+
+Persyaratan Sistem:
+Python 3.10+
+Node.js 18+
+Koneksi Internet
+
+MENJALANKAN BACKEND
+
+Membuat dan Mengaktifkan Virual Environment
+Tahapan ini bertujuan untuk membuat lingkungan Python yang terisolasi, sehingga dependensi proyek tidak bercampur dengan proyek lain di komputer. Hal ini penting untuk menjaga konsistensi versi library yang digunakan dalam pengembangan sistem. Untuk membuat dan mengaktifkan virtual environment di Windows dapat menggunakan kode program berikut.
+
+python -m venv venv
+venv\Scripts\activate
+
+Menginstal Dependensi Python
+Tahapan ini digunakan untuk menginstal semua pustaka (library) Python yang dibutuhkan oleh proyek,  yang akan digunakan dalam proses scraping, indexing, dan pembuatan backend API.
+
+Jalankan kode berikut:
+pip install -r requirements.txt
+
+Atau jalankan manual:
+pip install fastapi uvicorn requests beautifulsoup4 langchain langchain-cohere langchain-openai langchain-community faiss-cpu python-dotenv deep-translator langdetect scikit-learn pydantic
+
+Konfigurasi API Key
+Pada tahap ini, API key dari layanan eksternal (seperti Cohere atau OpenAI) dikonfigurasikan agar dapat digunakan dalam proses embedding teks dan menjalankan model AI. 
+Buat file bernama .env di dalam folder Backend
+Di dalam file .env, tambahkan:
+OPENAI_API_KEY=your_openai_api_key
+COHERE_API_KEY=your_cohere_api_key
+
+Gantilah  your_openai_api_key dan your_cohere_api_key dengan kunci API milik Anda.
+
+Proses Scraping dan Pembuatan Index FAISS
+Sistem ini akan melakukan scraping konten dari situs budayabali.com dan menghasilkan dua file JSON (Bahasa Indonesia dan Inggris), yang kemudian akan diubah menjadi index FAISS. Untuk menjalankan scraping dan proses embedding, jalankan kode berikut pada terminal.
+
+python load_data.py
+
+
+Menjalankan Backend API
+Setelah proses indexing selesai, selanjutnya dapat menjalankan server API menggunakan FastAPI. Gunakan kode berikut.
+
+uvicorn main:app --reload
+
+
+
+MENJALANKAN FRONTEND
+
+Frontend adalah bagian sistem yang berinteraksi langsung dengan pengguna. Dalam proyek ini, frontend dibuat menggunakan Next.js (React) dan menyediakan tampilan web bagi pengguna untuk dapat mengajukan pertanyaan seputar Budaya Bali. Frontend akan mengirimkan input pengguna ke backend API, lalu menampilkan hasil jawaban yang dikembalikan.
+
+Cara Menjalankannya:
+Setelah backend aktif, jalankan perintah berikut dari folder frontend
+
+npm install      # untuk menginstal dependensi frontend
+npm run dev      # untuk menjalankan frontend secara lokal
